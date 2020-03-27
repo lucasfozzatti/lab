@@ -1,16 +1,11 @@
-li = input("Ingrese los numeros separado por comas y un espacio\n")
-num = ""
-lista = []
-for i in (li + " "):
-    if i != "," and i != " ":
-        num = num + i
-    else:
-        if num != "":
-            lista.append(int(num))
-        num = ""
-def histograma(lis, cantidad = "-"):
-    for i in lis:
-        print(cantidad * i)
 
-histograma(lista)
+print('escriba una lista de numero separados: ', end='')
+numeros = list(map(int, input().split()))
 
+j=0
+for i in numeros:
+   print(numeros[j] * '*')
+   j+=1
+      
+      
+  
