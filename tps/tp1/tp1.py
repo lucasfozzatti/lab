@@ -22,23 +22,29 @@ try:
 
     args = parser.parse_args()
     
-    while args.size % 3 != 0:
-        args.size += 1
-
+   
 except:
-    if args.size < 90:
-            args.size = 90
+   
     print("ERROR - Argumentos invalidos")
     
 
 try:
     print("El padre", os.getpid(), "esta leyendo el archivo")
     time.sleep(2)
+    
 
-    #Leo la imagen
-    imagen = open(args.file, "rb").read()
+    im = open('dog.ppm', 'rb')
+    imagen=b''
+    while True:
 
-    #Fuera comentarios
+        image=im.read(args.size)
+        imagen += image
+        if not image:
+            break
+
+    
+    
+    
     for num in range(imagen.count(b"\n# ")):
         coment1 = imagen.find(b"\n# ")
         coment2 = imagen.find(b"\n", coment1 + 1)
@@ -46,20 +52,28 @@ try:
 
     finHeader = imagen.find(b"\n", imagen.find(b"\n", imagen.find(b"\n") + 1) + 1) + 1
 
-    #Guardo el header y el body
+    
     header = imagen[:finHeader].decode()
     body = imagen[finHeader:]
+    
+    
 
+    listaint=[]
+    for i in body:
+        listaint.append(i) 
+    
    
 
     print("La imagen fue leida correctamente")
+
 except:
+   
     print("ERROR - Error al leer la imagen, dirección invalida")
     
 
 
 try:
-    print("Llamando procesos hijos")
+    
 
     def prosRojo(ROJO):
         rojo = []
@@ -88,10 +102,12 @@ try:
         x.close()
 
     def prosVerde(VERDE):
+
         verde = []
         while True:
             try:
                 ima = VERDE.get_nowait()
+                
                 for num in range(len(ima)):
                     if (num-1) % 3 == 0 or num == 1:
                         v = int(ima[num] * args.green)
@@ -110,6 +126,7 @@ try:
         
         x=open(args.file + " Verde", "wb", os.O_CREAT) 
         x.write(bytearray(header, 'ascii'))
+        
         imverde.tofile(x)
         x.close()
         
@@ -139,26 +156,17 @@ try:
         x.write(bytearray(header, 'ascii'))
         imazul.tofile(x)
         x.close()
+    
+     
         
-    
-    listaint=[]
-    for i in body:
-        listaint.append(i)
     cola = []
-    
-    j = 0
-    k = []
-    for i in range(len(listaint)):
-        k.append(listaint[i])
-        j += 1
-        if j == args.size:
-            cola.append(k)#cola del proceso
-            k = []
-            j = 0
+    cola.append(listaint)
+
     
     cr = multiprocessing.Queue()
     cv = multiprocessing.Queue()
     ca = multiprocessing.Queue()
+
 
     for i in cola:
         cr.put(i)
