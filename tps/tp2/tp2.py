@@ -1,138 +1,188 @@
 #!/usr/bin/python3
+
 import os
 import argparse
 import array
-import time
+import concurrent.futures 
 import threading
-from converter import a_bits, de_bits
-from mensaje_code import mess
+import header
+from time import time
+import string
 
-#0-------------argumentos----------------------0
 
-# Argumentos
-parser = argparse.ArgumentParser(description='Tp2 - procesa ppm')
-parser.add_argument('-s', '--size', type=int, help='Bloque de lectura')
-parser.add_argument('-f', '--file', help='Archivo a procesar')
-parser.add_argument('-m', '--message', help='Mensaje Esteganográfico')
-parser.add_argument('-p', '--pixels', type=int, help='offset en pixels del inicio del raster')
-parser.add_argument('-i', '--interleave', type=int, help='interleave de modificacion en pixel')
-parser.add_argument('-o', '--output', help='estego-mensaje')
+global read_bytes
+#barrier=threading.barrier(5)
 
-args = parser.parse_args()
+def change_LSB(byte, bit):
+    if byte % 2 != bit:
+        if bit == 1:
+            byte += 1
+        else:
+            byte -= 1
 
+    return byte
+
+
+def thread_work(color, total_bytes, change, mensaje):
+    global read_bytes
     
+    global barrier
 
+    bits = [mensaje[i] for i in range(color, len(mensaje), 3)]
+    wr = 0
+    while wr < total_bytes:
 
-#0-----------------------------------0
-#pixels = 2  message = "mensa" interleave = 0 output = "salida.ppm"
-class est():
-    def _init_(self):
-        self.a = 0
-        self.cont = 0
-        self.mens = ""
-        self.sis = 0
-        self.offs = 0
-        self.header = ""
-        self.body = ""
-        self.imageInt = []
+        wr = len(read_bytes)
 
-    def again(self):
-        self.cont = 0
+        # modifican bytes y guardan en lista
+        while change != [] and change[0] < wr:
 
-    #0---------------mensaje--------------------0
-    def mensaje(self):
-       
-        self.mens = mess(args.message)[0]
-        self.sis = mess(args.message)[1]
-        self.offs = args.pixels * 3
+            index_to_change = change.pop(0)
+            read_bytes[index_to_change] = change_LSB(read_bytes[index_to_change], int(bits.pop(0)))
+            
 
-    #0-----------------------------------0
-
-    #0------------primeros pasos imagen-----------------------0
-    def modificar_imagen(self):
-    
-        print("Se esta leyendo el archivo")
-
-        #Abro la imagen y la leo
-        imagen = open(args.file, "rb").read()
-
-        #Fuera comentarios
-        for num in range(imagen.count(b"\n# ")):
-            com1 = imagen.find(b"\n# ")
-            com2 = imagen.find(b"\n", com1 + 1)
-            imagen = imagen.replace(imagen[com1:com2], b"")
-
-        finHeader = imagen.find(b"\n", imagen.find(b"\n", imagen.find(b"\n") + 1) + 1) + 1
-
-        #Guardo el header y el body
-        self.header = ""
-        for i in imagen[:finHeader].decode():
-            if i == "6":
-                if len(str(self.sis)) >= 3:
-                    self.header += "6\n#UMCOMPU2" + " " + str(self.offs) + " " + "2" + " " + str(self.sis)
-                else:
-                    self.header += "6\n#UMCOMPU2" + " " + str(self.offs) + " " + "2" + " " + str(self.sis) + " "
-            else:
-                self.header += i
-        self.body = imagen[finHeader:]
-
-        #Pixeles a int
-        self.imageInt = [i for i in self.body]
-
-    #0-------------modificar bits----------------------0
-    def modificar_bits(self):
-    
-        for i in range(len(self.mens)):
-            if i == 0:
-                bit = a_bits(str(self.imageInt[self.offs]), self.mens[i])
-                bitas = de_bits(bit)
-                self.imageInt[self.offs] = int(bitas)
-            else:
-                if self.cont == 2:
-                    bit = a_bits(str(self.imageInt[self.offs]), self.mens[i])
-                    bitas = de_bits(bit)
-                    self.imageInt[self.offs + self.a] = int(bitas)
-                    self.again()
-                else:
-                    self.a += 3 * (args.interleave + 1)
-                    self.cont += 1
-                    bit = a_bits(str(self.imageInt[self.offs]), self.mens[i])
-                    bitas = de_bits(bit)
-                    self.imageInt[self.offs + self.a] = int(bitas)
-            self.offs += 1
-       
-
-    #0--------------guardo la imagen---------------------0
-    def create(self):
-    
-        imagenMensaje = array.array('B', [i for i in self.imageInt])
-
-        with open(args.output, "wb", os.O_CREAT) as x:
-                x.write(bytearray(self.header, 'ascii'))
-                imagenMensaje.tofile(x)
-                x.close()
         
 
-    #0-----------------------------------0
 
-    def main(self):
+def rot13(text):
+    rot13trans =text.maketrans(b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 
+        b'NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm')
+    return text.translate(rot13trans)
+def trans(mensaje):
+    mensaje=rot13(mensaje)
+    print(mensaje)
+
+    
+    
+    x = []
+    for i in mensaje:
+        bit = bin(i)[2:]
+        while len(bit) < 8:
+            bit = "0" + bit
+        x.append(bit)
+
+    mensaje= "".join(x)
+   
+    return mensaje
+
+
+def main():
+    inicio = time()
+    global mensaje
+    global read_bytes
+    read_bytes = []
+    try:
+        # argumentos
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument("-f", "--file", type=str, required=True, help="ppm file you want to open")
+        parser.add_argument("-m", "--message", type=str, required=True, help="file")
+        parser.add_argument("-o", "--output", type=str, required=True, help="file")
+        parser.add_argument("-s", "--size", type=int, default=1024, help="size")
+        parser.add_argument("-e", "--offset", type=int, required=True, help="interleave pixels")
+        parser.add_argument("-i", "--interleave", type=int, required=True, help="interleave pixels")
+        parser.add_argument("-c", "--cifrado", action= 'store_true', help="message in rot13") 
+
+        args = parser.parse_args()
+    except:
+        print("Debe especificar todos los argumentos")
+   
+    path = "/home/lucas/tp2_p/"
+    
+    L_file = os.path.getsize(path + args.file)
+
+    archivo= open(path + args.message, "rb")
+    mensaje = archivo.read()
+    L_TOTAL = len(mensaje)
+
+    if args.cifrado:
+
+        thread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+        hilo=thread.submit(trans, mensaje)   
+        mensaje=hilo.result()
+    else:
         
-        ha = threading.Thread(target=self.mensaje())
-        hb = threading.Thread(target=self.modificar_imagen())
-        hc = threading.Thread(target=self.create())
+        x = []
+        for i in mensaje:
+            bit = bin(i)[2:]
+            while len(bit) < 8:
+                bit = "0" + bit
+            x.append(bit)
 
-        ha.start()
-        hb.start()
-        hc.start()
+        mensaje= "".join(x)
+        print(mensaje)
+
+    f = os.open(path + args.file, os.O_RDONLY)
+    
+    
+    header_end, width, height, max_c, comments = header.readHeader(f)
+
+   
+
+    os.lseek(f, header_end, 0)
+
+   
+    comments = "#UMCOMPU2 " + str(args.offset) + " " + str(args.interleave) + " " + str(L_TOTAL)
+    
+
+
+    w = os.open(path + args.output, os.O_WRONLY | os.O_CREAT)
+    N_header = header.createHeader(width, height, max_c, comments)
+    L_header = len(N_header)
+    os.close(w)
+
+    
+    index =[]
+    n = 0
+    for pixel in range(0*3, L_file - header_end, 1*3):
+        index.append(pixel + n)
+        n += 1
+        if n == 3:
+            n = 0
+    
+    red = []
+    green = []
+    blue = []
+    index = index[:len(mensaje)]
+    for i in range(0, len(index), 3):
+        red.append(index[i])
+    for i in range(1, len(index), 3):
+        green.append(index[i])
+    for i in range(2, len(index), 3):
+        blue.append(index[i])
+  
+    indexes = (red, green, blue)
+
+    thread = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+    for i in range(len(indexes)):
+
+        [thread.submit(thread_work, i, width * height * 3, indexes[i], mensaje)]
+
+    if len(mensaje) * args.interleave + args.offset > width*height:
+
+        raise exceptions.OverflowError("No existen suficientes bytes")
+    
+    out = open(path + args.output, "wb", os.O_CREAT)
+    out.write(bytearray(N_header, 'ascii'))
+
+    wr = 0
+    while wr < (width * height * 3):
+        read_bytes += [i for i in os.read(f, args.size)]
+        wr = len(read_bytes)
+    if read_bytes:
+        image = array.array('B', read_bytes)
+        image.tofile(out)
         
+   # try:
+        #barrier.wait(0.1)
+    #except threading.BrokenBarrierError:
+     #   pass
 
-        ha.join()
-        hb.join()
-        hc.join()        
-       
-        print("Archivo leido correctamente")    
+    out.close()
+    print("header", L_header)
+    print("Tiempo total:\n", str(time()-inicio)[:4], "segundos")
 
 
-
-ob = est()
-ob.main()
+if __name__ == "__main__":
+    main()
