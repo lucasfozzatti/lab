@@ -1,0 +1,61 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+
+        <TITLE >TP 3</TITLE>
+    </head>
+    <body style="width: 500px; margin: 0 auto; text-align: center;border-radius: 10px 10px 10px 10px;
+    -moz-border-radius: 18px 18px 10px 10px;
+    -webkit-border-radius: 15px 15px 10px 10px;
+    border: 3px solid #d6d3d6; margin-top: 65px; color: rgb(0, 0, 0); ">
+        <h1 style="margin-bottom: 30px; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;text-align:center; background-color: rgb(167, 166, 166); border-bottom: 3px solid #50534f; background-color: rgb(155, 214, 155); border-radius: 10px 10px 0px 0px;">Bienvenido</h1>
+        <h4 style=" margin-bottom: 30px; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;text-align:center;">Servidor</h4>
+
+        <p style= "font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif; ">Ingrese nombre del archivo y seleccione el formato:</p>
+
+        <input style="float: left; width: 200px; margin-left: 110px;" placeholder="Nombre" class="form-control" id="NombreSinFormato" />
+
+        <select class="form-control" style="width: 90px;" id="Formato">
+            <option value="jpg">JPG</option>
+            <option value="ppm">PPM</option>
+            <option value="pdf">PDF</option>
+            <option value="txt">TXT</option>
+            <option value="html">HTML</option>
+        </select>
+
+        <div id="EstiloPPM" style="padding: 20px;" >
+            <br>
+            <input style="background-color: red; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;margin-bottom: 20px;"type="radio" checked name="tipo" value="red">Rojo
+            <br>
+            <input style="color: blue; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;margin-bottom: 20px;"type="radio" name="tipo" value="blue">Azul
+            <br>
+            <input style="color: green; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;margin-bottom: 20px;" type="radio" name="tipo" value="green">Verde
+            <br>
+            <input style="font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;margin-bottom: 40px;" type="radio" name="tipo" value="b&w">Blanco y Negro
+            
+            <br>
+            <p style="font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;float: left; margin-top: 5px; margin-left: 75px;">Intensidad:</p> <input step="any" style="width: 100px; text-align: center;"  class="form-control" type="number" id="intensidad" />
+            <br>
+        </div>
+
+        
+
+        <button style="font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;margin-top: 5px; background-color: rgb(71, 167, 71);" onclick="Redireccionar();" class="btn btn-secondary">Aplicar</button>
+
+    </body>
+    
+</html>
+
+<script>
+    function Redireccionar(){
+        if($('#Formato').val() == "ppm"){
+            
+            location.href='/' + $('#NombreSinFormato').val() + '.' + $('#Formato').val() + '?' + $('input:radio[name=tipo]:checked').val() + '=' + $('#intensidad').val()
+
+        }else{
+            location.href='/' + $('#NombreSinFormato').val() + '.' + $('#Formato').val()
+        }
+    };
+</script>
+
