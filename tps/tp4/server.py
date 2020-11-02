@@ -27,18 +27,18 @@ async def search(data, dic, writer):
         if p == 1:
             archivo = elem
     
-   
-    if archivo.find('./gallery.ico') != -1:
-        writer.write(open('/home/lucas/comp2/lab/tps/tp4/gallery.ico', 'rb').read())
+    
+    if archivo.find('gallery.ico') != -1:
+        writer.write(open(args.root + "gallery.ico", 'rb').read())
         
     else:
         
         try:
             if archivo == '/' or archivo == '/index':
-                archivo = '/home/lucas/comp2/lab/tps/tp4/index.html'
+                archivo = args.root + "index.html"
                 extension = 'html'
             else:
-                archivo = '/home/lucas/comp2/lab/tps/tp4/' + archivo.split("/")[1]  
+                archivo = args.root + archivo.split("/")[1]  
                 extension = archivo.split(".")[1]
                 
             fd = os.open(archivo, os.O_RDONLY)
@@ -48,7 +48,7 @@ async def search(data, dic, writer):
             writer.write(header)      
             with open(archivo, 'rb') as file:
                 while True:
-                    lec = file.read(1024)
+                    lec = file.read(args.size)
                     if not lec:
 
                         break
@@ -62,7 +62,7 @@ async def search(data, dic, writer):
         except Exception as x:
             print("erorrrr", x)
             
-            archivo = '/home/lucas/comp2/lab/tps/tp4/404error.html'
+            archivo = args.root + "404error.html"
             extension = 'html'
             fd = os.open(archivo, os.O_RDONLY)
             body = os.read(fd, os.path.getsize(archivo))
@@ -83,18 +83,19 @@ async def clients(ip, port):
  
 async def main():
     server = await asyncio.start_server(
-        handle_echo, 'localhost', 8080)   
+        handle_echo, args.ip, args.port)   
     
     async with server:
         await server.serve_forever()
 
 if __name__ == "__main__":
-    arg = ArgumentParser(
+    parser = ArgumentParser(
         description='Servidor asincronico de multimedias', usage='server.py -r [ruta de documentos] -p [puerto] -s [bloque de lectura] -i [direccion ip]')
    
-    arg.add_argument('-r', '--root', type=str, help='Ruta', default='/root')
-    arg.add_argument('-p', '--port', type=int, nargs=1, help='Puerto', default=8080)
-    arg.add_argument('-s', '--size', type=int, help='Bloque de lectura', default=1024)
-    arg.add_argument('-i', '--ip', type=str, help='direccion ip', default=['localhost'], metavar='')
+    parser.add_argument('-r', '--root', type=str, help='Ruta', default='/home/lucas/comp2/lab/tps/tp4/')
+    parser.add_argument('-p', '--port', type=int, nargs=1, help='Puerto', default=8080)
+    parser.add_argument('-s', '--size', type=int, help='Bloque de lectura', default=1024)
+    parser.add_argument('-i', '--ip', type=str, help='direccion ip', default=['localhost'], metavar='')
+    args = parser.parse_args()
 
 asyncio.run(main())    
