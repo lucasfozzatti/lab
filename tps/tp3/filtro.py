@@ -1,72 +1,71 @@
-#Filtro de Colores RGB y Blanco y Negro, para imagenes ppm#
-from concurrent import futures
+import multiprocessing as mp
+import array
+import os
 
 
-class Filtro():
+class Filter():
 
-    def __init__(self, imagen, filtro, intensidad, bloque, childs):
-        self.imagen = imagen
-        self.inten = intensidad
-        self.cabecera = self.head(imagen)
-        self.newImg = bytearray()
-        self.child = childs
-        if self.child % 2 != 0:
-            self.child +=1
-        if bloque % 3 != 0:
-            self.bloque = bloque - bloque % 3
+    def __init__(self, file, opt, inte, childs, size):
+        if size % 3 != 0:
+            self.size = size - size % 3
         else:
-            self.bloque = bloque
+            self.size = size
+        # Arguemntos de entrada
+        self.file = file
+        self.inten = inte
+        self.childs = childs
+        # Imagen nueva
+        self.imagenF = open('temp.ppm', 'wb')
+        # IPC
+        self.cola = mp.Queue()
+        self.chunk = array.array('B')
+        # Determino que byte modificar:
+        for pos, color in enumerate(['red', 'green', 'blue', 'b&w']):
+            if opt == color:
+                self.filtro = pos
 
-        if filtro == 'red':
-            self.filtro = 0
-        elif filtro == 'green':
-            self.filtro = 1
-        elif filtro == 'blue':
-            self.filtro = 2
-        elif filtro == 'b&w':
-            self.filtro = 3
-
-    # Funcion que lee el bloque, en bytes, que se le envia y devuelve una matriz de pixeles
-    def save(self, imagen):
-        bloq = []
-        pix = []
-            
-        for p, b in enumerate(imagen):
-            if p % 3 == 0:
-                bloq.append(pix)
-                pix = []
-            pix.append(b)
-          
-        bloq.pop(0)
-        return bloq
-
-    # Filtro de colores e intensidad
-    def filter(self, pixel):
-        if self.filtro != 3:
-            for pos, by in enumerate(pixel):
-                if pos == self.filtro:
-                    mod = pixel[pos] * self.inten
-                    if mod < 256:
-                        pixel[pos] = int(mod)
+    # filtro
+    def filter(self, lock):
+        print('En ejecucion: ', os.getpid())
+        lock.acquire()
+        newB = []
+        while True:
+            leido = self.cola.get()
+            if leido == 'end':
+                break
+            lecList = [i for i in leido]
+            if self.filtro != 3:
+                for pos, by in enumerate(lecList):
+                    if pos % 3 == self.filtro:
+                        mod = int(by) * self.inten
+                        if mod < 256:
+                            newB.append(int(mod))
+                        else:
+                            newB.append(255)
                     else:
-                        pixel[pos] = 255
-                else:
-                    pixel[pos] = 0
-        else:
-            suma = pixel[0] + pixel[1] + pixel[2]
-            newValue = suma/3
-            mod = int(newValue * self.inten)
-            if mod < 256:
-                newValue = mod
+                        newB.append(0)
             else:
-                newValue = 255
-            for n in range(3):
-                pixel[n] = newValue
-        return pixel
+                # Valor para ajuste de filtro.
+                lecList.append(0)
+                # ---
+                suma = 0
+                for pos, by in enumerate(lecList):
+                    if pos % 3 == 0 and pos > 0:
+                        newValue = suma//3
+                        mod = newValue * self.inten
+                        for _ in range(3):
+                            if mod < 256:
+                                newB.append(int(mod))
+                            else:
+                                newB.append(255)
+                        suma = 0
+                    suma += int(by)
+        lock.release()
+        array.array('B', newB).tofile(self.imagenF)
 
-    #Cabecera de imagen ppm
-    def head(self, file):
-        img = open(file, 'rb')
+    # Cabecera de imagen ppm
+    def head(self):
+        img = open(self.file, 'rb')
         lines = img.read(100).splitlines()
         comments = []
         header_end = 0
@@ -86,48 +85,33 @@ class Filtro():
                 header_end += len(line) + 1
                 break
         header = f'P6\n{width} {height}\n{max_c}\n'
-        return header_end, width, height, max_c, comments, bytearray(header, 'utf-8')
+        return header_end, bytearray(header, 'utf-8')
 
-    
     def main(self):
-        hilos = futures.ThreadPoolExecutor(max_workers=self.child/2)
-        hilosB = futures.ThreadPoolExecutor(max_workers=self.child/2)
-       
-        bloqF = []
-        n=0
-        #Incerto cabecera en nueva imagen
-        for by in self.cabecera[-1]:
-            self.newImg.append(by)
+        sik, head = self.head()
+        lock = mp.Lock()
+        # Imagen nueva
+        self.imagenF.write(head)
+        # Defino hijos
+        hijos = []
+        for n in range(self.childs):
+            hijos.append(mp.Process(target=self.filter, args=(lock,)))
+            hijos[n].start()
         # ----
-        with open(self.imagen, 'rb') as img:
-            img.seek(self.cabecera[0])
+        with open(self.file, 'rb') as imagen:
+            imagen.seek(sik)
             while True:
-                for i in range(self.child):
-                    f = img.read(self.bloque)
-                    if not f:
-                        break
-                    _lec = hilos.submit(self.save, f)
-                    
-                    for pix in _lec.result(timeout=None):
-                        _worker = hilosB.submit(self.filter, pix)
-                        bloqF.append(_worker.result())
-                
-                n=n+self.child 
-                img.seek(n * self.bloque)    
-                if not f:
+                lec = imagen.read(self.size)
+                self.cola.put(lec)
+                if not lec:
                     break
-              
-        for pix in bloqF:
-            for by in pix:
-                self.newImg.append(by)
-        return self.newImg
+            for i in range(self.childs):
+                self.cola.put("end")
+            for i in range(self.childs):
+                hijos[i].join()
+        print('- Terminado - ')
 
 
- 
-# TESTING#
 if __name__ == "__main__":
-    obj = Filtro('/home/lucas/compu2/lab/tps/tp3/dog.ppm', 'b&w', 1, 15000, 3)
-    img = obj.main()
-    image = open("/home/lucas/compu2/lab/tps/tp3/f_dog.ppm", "wb")
-    image.write(img)
-    image.close   
+    obj = Filter('dog.ppm', 'green', 0.5, 7, 250)
+    obj.main()
